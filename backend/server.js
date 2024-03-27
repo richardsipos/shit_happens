@@ -15,6 +15,7 @@ const io = new Server(server, {
 });
 
 const minPlayers = 2;
+const startingCards = 3;
 
 function getRandomItemAndRemove(array) {
   const index = Math.floor(Math.random() * array.length);
@@ -27,6 +28,7 @@ app.use(cors());
 // Key, users, sockets
 let lobbies = [];
 let playerToDelete = {};
+let randomItem = {};
 
 io.on("connection", (socket) => {
   socket.on("disconnect", () => {
@@ -103,8 +105,20 @@ io.on("connection", (socket) => {
 
       if(minPlayers === lobby.players.length){
         console.log("Game can start");
-        const randomItem = getRandomItemAndRemove(DefaultCardContent);
-        lobby.players[0].socket.emit("turnToGuess", { randomItem:randomItem });
+
+
+        lobby.players.forEach((player,index) => {
+          for(let i=0; i<startingCards; i++){
+            randomItem = getRandomItemAndRemove(lobby.cardsAvailable);
+            player.cards.push(randomItem);
+          }
+
+          player.socket.emit("addStartingCards", { myCards: player.cards });
+          
+        });
+
+        randomItem = getRandomItemAndRemove(DefaultCardContent);
+        lobby.players[0].socket.emit("turnToGuess", { randomItem:randomItem});
       }
 
 
@@ -117,7 +131,7 @@ io.on("connection", (socket) => {
     lobby.players.forEach((player,index) => {
       if(player.username === username){
 
-        let randomItem = null;
+        randomItem = null;
         if(guess){
           player.cards.push(guessCard);
           randomItem = getRandomItemAndRemove(lobby.cardsAvailable);
@@ -128,16 +142,29 @@ io.on("connection", (socket) => {
         let newUsername = "";
         if( index === lobby.players.length-1){
           newUsername = lobby.players[0].username;
-          lobby.players[0].socket.emit("turnToGuess", { randomItem:randomItem  });
+          lobby.players[0].socket.emit("turnToGuess", { randomItem:randomItem });
         }else{
           newUsername = lobby.players[index+1].username;
-          lobby.players[index+1].socket.emit("turnToGuess", { randomItem:randomItem  });
+          lobby.players[index+1].socket.emit("turnToGuess", { randomItem:randomItem });
         }
+        
+      }});  
 
-    
-      }});
-    });
   });
+
+    socket.on("onePlayerMoved", ({ channelKey }) => {
+      const lobby = lobbies.find((lobby) => lobby.key === channelKey.toString());
+      lobby.players.forEach((player) => {
+        setTimeout(() => {
+          player.socket.emit("onePlayerMoved", { allPlayersState: lobby.players });
+        }, 1);
+      });
+    });
+      //player.socket.emit("onePlayerMoved", { allPlayersState: lobby.players });
+    //});
+  //});
+
+});
 
 
 
